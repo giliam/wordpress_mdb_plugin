@@ -29,7 +29,7 @@ class ConsignePlugin
     {
         global $wpdb;
 
-        $wpdb->query("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}consigne_caisse (id INT AUTO_INCREMENT PRIMARY KEY, email VARCHAR(255), balance DOUBLE PRECISION DEFAULT 0.0);");
+        $wpdb->query("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}consigne_caisse (id INT AUTO_INCREMENT PRIMARY KEY, email VARCHAR(255), balance DOUBLE PRECISION DEFAULT 0.0, last_updated DATETIME DEFAULT CURRENT_TIMESTAMP);");
     }
 
     public static function uninstall()
@@ -53,6 +53,11 @@ class ConsignePlugin
         <h2>Your balance</h2>
         <p><strong><?php echo $balance; ?></strong></p>
         <h2>Upload a file</h2>
+        <p>Last upload: <em><?php echo (
+                empty(get_option('consigne_caisse_last_uploaded')) 
+                ? "Inconnu" 
+                : get_option('consigne_caisse_last_uploaded')
+                ); ?></em></p>
         <form method="post" action="" enctype="multipart/form-data">
             <?php 
             if( $this->uploadSucceeded ) {
@@ -69,6 +74,11 @@ class ConsignePlugin
         </form>
 
         <h2>Update the balances</h2>
+        <p>Last update: <em><?php echo (
+                empty(get_option('consigne_caisse_last_updated')) 
+                ? "Inconnu" 
+                : get_option('consigne_caisse_last_updated')
+                ); ?></em></p>
         <form method="post" action="">
             <input type="hidden" name="update_balances" value="1"/>
             <?php submit_button("Go"); ?>
@@ -182,7 +192,7 @@ class ConsignePlugin
                     $this->users_failed[] = $user->user_email;
                 }
             }
-
+            update_option('consigne_caisse_last_updated', date("d/m/Y H:i:s"));
         }
         else if( isset($_FILES["consigne_caisse_upload"])) {
             $upload_dir = wp_upload_dir()["basedir"] . "/caisse/";
@@ -190,6 +200,7 @@ class ConsignePlugin
 
             if (move_uploaded_file($_FILES['consigne_caisse_upload']['tmp_name'], $uploadfile)) {
                 $this->uploadSucceeded = true;
+                update_option('consigne_caisse_last_uploaded', date("d/m/Y H:i:s"));
             }
         }
     }
