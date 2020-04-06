@@ -42,10 +42,26 @@ class ConsignePlugin
         add_action('load-'.$hook, array($this, 'process_action'));
     }
 
+    public function get_current_user_balance()
+    {
+        global $wpdb;
+        $user_pk = get_current_user_id();
+        $query = $wpdb->get_row("SELECT balance FROM {$wpdb->prefix}consigne_caisse WHERE id = " . intval($user_pk));
+        if( $query ) {
+            return floatval($query->balance) . " €";
+        }
+        else {
+            return "<em>Inconnu</em>";
+        }
+    }
+
     public function menu_html()
     {
+        $balance = $this->get_current_user_balance();
         echo '<h1>'.get_admin_page_title().'</h1>';
         ?>
+        <h2>Your balance</h2>
+        <p><strong><?php echo $balance; ?></strong></p>
         <h2>Upload a file</h2>
         <form method="post" action="" enctype="multipart/form-data">
             <?php 
@@ -115,6 +131,7 @@ class ConsignePlugin
             $driver = 'MDBTools'; 
              
             $dbh = new  PDO("odbc:Driver=" . $driver . ";DBQ=" . $dbName . ";");
+            $dbh->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
             $sql = "SELECT tContactsPK, Courriel1 FROM tContacts";  // The rules are the same as above 
             $sth = $dbh->prepare($sql); 
@@ -126,13 +143,48 @@ class ConsignePlugin
                 $users_pk[esc_sql($flg["Courriel1"])] = intval($flg["tContactsPK"]);
             }
 
+            // tAccomptes contient les "accomptes" versés par les personnes.
+
+            try {
+                $sql = "SELECT * FROM T_Operation";  // The rules are the same as above 
+                $sth = $dbh->prepare($sql); 
+                $sth->execute(); 
+            }
+            catch(Exception $e) {
+                echo 'Exception -> ';
+                var_dump($e->getMessage());
+            }
+            $users_balances = array();
+
+            while ($flg = $sth->fetch(PDO::FETCH_ASSOC)){
+                $pk_user = intval($flg["IDFKContacts"]);
+                $date = explode(" ", $flg["DateOperation"]);
+                $time = explode(" ", $flg["HeureOperation"]);
+                $timestamp = DateTime::createFromFormat('m/d/y H:i:s', $date[0] . " " . $time[1]);
+                // var_dump(DateTime::getLastErrors());
+
+                if( isset($users_balances[$pk_user]) && $users_balances[$pk_user]["date"] < $timestamp ) {
+                    // && $users_balances[$pk_user]["date"]
+                    $users_balances[$pk_user] = array("date"=>$timestamp, "balance"=>floatval($flg["TotalRestant"]));
+                }
+                else if( !isset($users_balances[$pk_user]) ) {
+                    $users_balances[$pk_user] = array("date"=>$timestamp, "balance"=>floatval($flg["TotalRestant"]));   
+                }
+            }
+
+            foreach ($users_pk as $email => $pk) {
+                if( !array_key_exists($pk, $users_balances) ) {
+                    $users_balances[$pk] = array("balance"=>0.0);
+                }
+            }
+
             $wpdb->query("TRUNCATE {$wpdb->prefix}consigne_caisse;");
             $rows_users = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}users WHERE user_email IN ('" . implode("', '", array_keys($users_pk)) . "')");
 
             $this->users_updated = array();
             $this->users_failed = array();
             foreach ($rows_users as $key => $user) {
-                $res = $wpdb->insert("{$wpdb->prefix}consigne_caisse", array('email' => $user->user_email, 'id' => $user->ID, "balance" => $users_pk[$user->user_email]));
+                $res = $wpdb->insert("{$wpdb->prefix}consigne_caisse", array('email' => $user->user_email, 'id' => $user->ID, "balance" => $users_balances[$users_pk[$user->user_email]]["balance"]));
                 if($res){
                     $this->users_updated[] = $user->user_email;
                 }
@@ -140,6 +192,7 @@ class ConsignePlugin
                     $this->users_failed[] = $user->user_email;
                 }
             }
+
         }
         else if( isset($_FILES["consigne_caisse_upload"])) {
             $upload_dir = wp_upload_dir()["basedir"] . "/caisse/";
