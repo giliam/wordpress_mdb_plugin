@@ -7,7 +7,9 @@
  * Author: Giliam
  * Author URI: ...
  */
-defined( 'ABSPATH' ) or die( 'No script kiddies please!' );
+defined( 'ABSPATH' ) or die();
+include_once plugin_dir_path( __FILE__ ).'/common.php';
+include_once plugin_dir_path( __FILE__ ).'/caisse_widget.php';
 class ConsignePlugin
 {
     public function __construct()
@@ -20,6 +22,7 @@ class ConsignePlugin
         register_uninstall_hook(__FILE__, array('ConsignePlugin', 'uninstall'));
 
         add_action('admin_menu', array($this, 'add_admin_menu'));
+        add_action('widgets_init', function(){register_widget('ConsigneCaisseWidget');});
     }
 
     public static function install()
@@ -42,22 +45,9 @@ class ConsignePlugin
         add_action('load-'.$hook, array($this, 'process_action'));
     }
 
-    public function get_current_user_balance()
-    {
-        global $wpdb;
-        $user_pk = get_current_user_id();
-        $query = $wpdb->get_row("SELECT balance FROM {$wpdb->prefix}consigne_caisse WHERE id = " . intval($user_pk));
-        if( $query ) {
-            return floatval($query->balance) . " €";
-        }
-        else {
-            return "<em>Inconnu</em>";
-        }
-    }
-
     public function menu_html()
     {
-        $balance = $this->get_current_user_balance();
+        $balance = get_current_user_balance();
         echo '<h1>'.get_admin_page_title().'</h1>';
         ?>
         <h2>Your balance</h2>
