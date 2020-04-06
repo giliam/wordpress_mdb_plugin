@@ -159,8 +159,14 @@ class ConsignePlugin
     
                 $dbName = get_option('consigne_caisse_db_folder'); 
                  
-                $dbh = new  PDO("odbc:Driver=" . $driver . ";DBQ=" . $dbName . ";");
-                $dbh->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                try {
+                    $dbh = new  PDO("odbc:Driver=" . $driver . ";DBQ=" . $dbName . ";");
+                    $dbh->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                }
+                catch(PDOException $e) {
+                    $this->errorMessage = 'ExceptionPDOCreation -> ' . $e->getMessage();
+                    return false;
+                }
 
                 try {
                     $sql = "SELECT tContactsPK, Courriel1 FROM tContacts";  // The rules are the same as above 
@@ -168,7 +174,7 @@ class ConsignePlugin
                     $sth->execute();
                 }
                 catch(PDOException $e) {
-                    $this->errorMessage = 'Exception -> ' . $e->getMessage();
+                    $this->errorMessage = 'ExceptionContactsRetrieval -> ' . $e->getMessage();
                     return false;
                 }
 
@@ -186,7 +192,7 @@ class ConsignePlugin
                     $sth->execute(); 
                 }
                 catch(Exception $e) {
-                    $this->errorMessage = 'Exception -> ' . $e->getMessage();
+                    $this->errorMessage = 'ExceptionT_Operation -> ' . $e->getMessage();
                     return false;
                 }
                 $users_balances = array();
