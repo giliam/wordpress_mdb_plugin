@@ -40,6 +40,12 @@ class ConsignePlugin
         global $wpdb;
 
         $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}consigne_caisse;");
+        if( get_option('consigne_caisse_db_folder') ) {
+            unlink(get_option('consigne_caisse_db_folder'));
+        }
+        delete_option('consigne_caisse_last_updated');
+        delete_option('consigne_caisse_db_folder');
+        delete_option('consigne_caisse_last_uploaded');
     }
 
     public function add_admin_menu()
