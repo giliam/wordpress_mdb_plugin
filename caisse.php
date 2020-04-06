@@ -124,7 +124,7 @@ class ConsignePlugin
         if( isset($_POST["update_balances"]) ){
             global $wpdb;
 
-            $upload_dir = wp_upload_dir()["basedir"] . "/caisse/";
+            $upload_dir = plugin_dir_path( __FILE__ ) . "/uploads/";
             $db = 'AssociationData.mdb';
  
             $dbName = $upload_dir . $db  ; 
@@ -195,7 +195,7 @@ class ConsignePlugin
             update_option('consigne_caisse_last_updated', date("d/m/Y H:i:s"));
         }
         else if( isset($_FILES["consigne_caisse_upload"])) {
-            $upload_dir = wp_upload_dir()["basedir"] . "/caisse/";
+            $upload_dir = plugin_dir_path( __FILE__ ) . "/uploads/";
             $uploadfile = $upload_dir . basename($_FILES['consigne_caisse_upload']['name']);
 
             if (move_uploaded_file($_FILES['consigne_caisse_upload']['tmp_name'], $uploadfile)) {
