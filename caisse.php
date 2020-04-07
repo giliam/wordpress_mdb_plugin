@@ -158,7 +158,8 @@ class ConsignePlugin
                 global $wpdb;
     
                 $dbName = get_option('consigne_caisse_db_folder'); 
-                 
+                $driver = 'MDBTools'; 
+
                 try {
                     $dbh = new  PDO("odbc:Driver=" . $driver . ";DBQ=" . $dbName . ";");
                     $dbh->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
