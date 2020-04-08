@@ -164,9 +164,16 @@ class ConsignePlugin
                     $dbh = new  PDO("odbc:Driver=" . $driver . ";DBQ=" . $dbName . ";");
                     $dbh->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                 }
-                catch(PDOException $e) {
-                    $this->errorMessage = 'ExceptionPDOCreation -> ' . $e->getMessage();
-                    return false;
+                catch(PDOException $e1) {
+                    try {
+                        $driver = "Microsoft Access Driver (*.mdb)";
+                        $dbh = new  PDO("odbc:Driver=" . $driver . ";DBQ=" . $dbName . ";");
+                        $dbh->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                    }
+                    catch(PDOException $e2) {
+                        $this->errorMessage = 'ExceptionPDOCreation -> ' . $e2->getMessage();
+                        return false;
+                    }
                 }
 
                 try {
