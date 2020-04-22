@@ -1,17 +1,20 @@
 <?php
+
 /**
  * Plugin Name: Caisse pour la consigne
- * Plugin URI: ...
+ * Plugin URI: https://github.com/giliam/wordpress_mdb_plugin/
  * Description: Caisse pour la consigne
- * Version: 1.0
+ * Version: 2.0
  * Author: Giliam
- * Author URI: ...
+ * Author URI: https://github.com/giliam/
  */
-defined( 'ABSPATH' ) or die();
-include_once plugin_dir_path( __FILE__ ).'/common.php';
-include_once plugin_dir_path( __FILE__ ).'/caisse_widget.php';
+defined('ABSPATH') or die();
+include_once plugin_dir_path(__FILE__) . '/common.php';
+include_once plugin_dir_path(__FILE__) . '/caisse_widget.php';
 
-class FileNotFound extends Exception {}
+class FileNotFound extends Exception
+{
+}
 
 class ConsignePlugin
 {
@@ -31,7 +34,9 @@ class ConsignePlugin
         register_uninstall_hook(__FILE__, array('ConsignePlugin', 'uninstall'));
 
         add_action('admin_menu', array($this, 'add_admin_menu'));
-        add_action('widgets_init', function(){register_widget('ConsigneCaisseWidget');});
+        add_action('widgets_init', function () {
+            register_widget('ConsigneCaisseWidget');
+        });
     }
 
     public static function install()
@@ -49,10 +54,10 @@ class ConsignePlugin
         global $wpdb;
 
         $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}consigne_caisse;");
-        if( get_option('consigne_caisse_db_pathfile_operations') && file_exists(get_option('consigne_caisse_db_pathfile_operations')) ) {
+        if (get_option('consigne_caisse_db_pathfile_operations') && file_exists(get_option('consigne_caisse_db_pathfile_operations'))) {
             unlink(get_option('consigne_caisse_db_pathfile_operations'));
         }
-        if( get_option('consigne_caisse_db_pathfile_contacts') && file_exists(get_option('consigne_caisse_db_pathfile_contacts')) ) {
+        if (get_option('consigne_caisse_db_pathfile_contacts') && file_exists(get_option('consigne_caisse_db_pathfile_contacts'))) {
             unlink(get_option('consigne_caisse_db_pathfile_contacts'));
         }
         delete_option('consigne_caisse_last_updated');
@@ -65,8 +70,8 @@ class ConsignePlugin
 
     public function add_admin_menu()
     {
-        $hook = add_menu_page('Consigne Caisse', 'Caisse', 'manage_options', 'consigne_caisse', array($this, 'menu_html'));
-        add_action('load-'.$hook, array($this, 'process_action'));
+        $hook = add_menu_page('Consigne Caisse', 'Caisse', 'manage_options', 'consigne_caisse', array($this, 'menu_html'), plugins_url('caisse/images/icon.png'));
+        add_action('load-' . $hook, array($this, 'process_action'));
     }
 
     public function menu_html()
@@ -75,178 +80,175 @@ class ConsignePlugin
         $last_uploaded = get_option('consigne_caisse_last_uploaded');
         $last_updated = get_option('consigne_caisse_last_updated');
 
-        echo '<h1>'.get_admin_page_title().'</h1>';
-        ?>
+        echo '<h1>' . get_admin_page_title() . '</h1>';
+?>
         <h2>Your balance</h2>
         <p><strong><?php echo $balance; ?></strong></p>
         <h2>Upload a file</h2>
         <p>Last upload: <em><?php echo empty($last_uploaded) ? "Inconnu" : $last_uploaded; ?></em></p>
         <form method="post" action="" enctype="multipart/form-data">
-            <?php 
-            if( $this->uploadSucceeded ) {
-            ?>
-            <div class="updated">
-                <p>Upload succeeded!</p>
-            </div>
             <?php
-            }
-            ?><?php 
-            if( $this->wrongFileExtension ) {
+            if ($this->uploadSucceeded) {
             ?>
-            <div class="notice notice-error">
-                <p>Wrong file, sorry!</p>
-            </div>
-            <?php
+                <div class="updated">
+                    <p>Upload succeeded!</p>
+                </div>
+                <?php
             }
+                ?><?php
+                    if ($this->wrongFileExtension) {
+                    ?>
+                <div class="notice notice-error">
+                    <p>Wrong file, sorry!</p>
+                </div>
+            <?php
+                    }
             ?>
             <p><label>T_Operation csv file</label>
-            <input type="file" name="consigne_caisse_upload_operations" /></p>
+                <input type="file" name="consigne_caisse_upload_operations" /></p>
             <p><label>tContacts csv file</label>
-            <input type="file" name="consigne_caisse_upload_contacts" /></p>
+                <input type="file" name="consigne_caisse_upload_contacts" /></p>
             <?php submit_button("Upload"); ?>
         </form>
 
         <h2>Update the balances</h2>
-        <p style="<?php if( $last_uploaded && $last_updated && $last_updated < $last_uploaded ) { ?>color:red<?php } ?>">Last update: <em><?php echo empty($last_updated) ? "Inconnu" : $last_updated; ?></em> <?php if( $last_uploaded && $last_updated && $last_updated < $last_uploaded ) { ?><strong>(outdated)</strong><?php } ?></p>
-            <?php 
-            if( $this->missingFile ) {
-            ?>
+        <p style="<?php if ($last_uploaded && $last_updated && $last_updated < $last_uploaded) { ?>color:red<?php } ?>">Last update: <em><?php echo empty($last_updated) ? "Inconnu" : $last_updated; ?></em> <?php if ($last_uploaded && $last_updated && $last_updated < $last_uploaded) { ?><strong>(outdated)</strong><?php } ?></p>
+        <?php
+        if ($this->missingFile) {
+        ?>
             <div class="notice notice-error">
                 <p>A file is missing!</p>
             </div>
-            <?php
-            }
-            if( $this->wrongFiles ) {
-            ?>
+        <?php
+        }
+        if ($this->wrongFiles) {
+        ?>
             <div class="notice notice-error">
                 <p>Are you sure about your files? There should be <code><?php echo get_option("consigne_caisse_go_mail") ?></code> and <code>tContactsPK</code> headers in <em>Contacts file</em> and <code>IDFKContacts</code>, <code>DateOperation</code>, <code>HeureOperation</code>, <code><?php echo get_option("consigne_caisse_go_balance"); ?></code>, <code>tContactsPK</code> in <em>T_Operation file</em>.</p>
             </div>
-            <?php
-            }
-            if( $this->uploadFirst ) {
-            ?>
+        <?php
+        }
+        if ($this->uploadFirst) {
+        ?>
             <div class="notice notice-error">
                 <p>Upload the database first!</p>
             </div>
-            <?php
-            }
-            if( $this->errorMessage ) {
-            ?>
+        <?php
+        }
+        if ($this->errorMessage) {
+        ?>
             <div class="notice notice-error">
                 <p>Error during the import...</p>
                 <p><?php echo $this->errorMessage; ?></p>
             </div>
-            <?php
-            }
-            ?>
+        <?php
+        }
+        ?>
         <form method="post" action="">
             <p><label>Nom de la colonne contenant le courriel des utilisateurs</label>
-            <input type="text" name="consigne_caisse_go_mail" value="<?php echo empty(get_option("consigne_caisse_go_mail")) ? "Courriel1" : get_option("consigne_caisse_go_mail");?>" /></p>
+                <input type="text" name="consigne_caisse_go_mail" value="<?php echo empty(get_option("consigne_caisse_go_mail")) ? "Courriel1" : get_option("consigne_caisse_go_mail"); ?>" /></p>
             <p><label>Nom de la colonne contenant le solde des utilisateurs</label>
-            <input type="text" name="consigne_caisse_go_balance" value="<?php echo empty(get_option("consigne_caisse_go_balance")) ? "TotalRestant" : get_option("consigne_caisse_go_balance");?>" /></p>
-            <input type="hidden" name="update_balances" value="1"/>
+                <input type="text" name="consigne_caisse_go_balance" value="<?php echo empty(get_option("consigne_caisse_go_balance")) ? "TotalRestant" : get_option("consigne_caisse_go_balance"); ?>" /></p>
+            <input type="hidden" name="update_balances" value="1" />
             <?php submit_button("Go"); ?>
         </form>
-        <?php 
-        if( !empty($this->users_updated) ) {
+        <?php
+        if (!empty($this->users_updated)) {
         ?>
-        <div class="notice notice-success">
-            <p>Updated balance of following users succeeded:</p>
-            <ul>
-                <?php
-                foreach ($this->users_updated as $key => $user) {
+            <div class="notice notice-success">
+                <p>Updated balance of following users succeeded:</p>
+                <ul>
+                    <?php
+                    foreach ($this->users_updated as $key => $user) {
                     ?><li>- <?php echo $user; ?></li><?php
-                }
-                ?>
-            </ul>
-        </div>
+                                                    }
+                                                        ?>
+                </ul>
+            </div>
         <?php
         }
-        if( !empty($this->users_missing) ) {
+        if (!empty($this->users_missing)) {
         ?>
 
-        <div class="notice notice-warning">
-            <p>Following users' data missing:</p>
-            <ul>
-                <?php
-                foreach ($this->users_missing as $key => $user) {
+            <div class="notice notice-warning">
+                <p>Following users' data missing:</p>
+                <ul>
+                    <?php
+                    foreach ($this->users_missing as $key => $user) {
                     ?><li>- <?php echo $user; ?></li><?php
-                }
-                ?>
-            </ul>
-        </div>
+                                                    }
+                                                        ?>
+                </ul>
+            </div>
         <?php
         }
-        if( !empty($this->users_failed) ) {
+        if (!empty($this->users_failed)) {
         ?>
 
-        <div class="notice notice-error">
-            <p>Following users' updates failed:</p>
-            <ul>
-                <?php
-                foreach ($this->users_failed as $key => $user) {
+            <div class="notice notice-error">
+                <p>Following users' updates failed:</p>
+                <ul>
+                    <?php
+                    foreach ($this->users_failed as $key => $user) {
                     ?><li>- <?php echo $user; ?></li><?php
-                }
-                ?>
-            </ul>
-        </div>
+                                                    }
+                                                        ?>
+                </ul>
+            </div>
         <?php
         }
         ?>
 
         <br class="clear">
-        <?php
+<?php
     }
 
-    public function get_csv_content($filename, $check_keys=array()) {
-        if( file_exists($filename) ) {
+    public function get_csv_content($filename, $check_keys = array())
+    {
+        if (file_exists($filename)) {
             $file = fopen($filename, 'r');
             $array = array();
             $header = NULL;
             while (($line = fgetcsv($file)) !== FALSE) {
-                if( empty($header) ) {
+                if (empty($header)) {
                     $header = $line;
-                    if(count(array_diff($header, $check_keys)) != count($header)-count($check_keys)) {
+                    if (count(array_diff($header, $check_keys)) != count($header) - count($check_keys)) {
                         return false;
                     }
-                }
-                else {
+                } else {
                     $array[] = array_combine($header, $line);
                 }
             }
             fclose($file);
             return $array;
-        }
-        else {
+        } else {
             throw FileNotFound();
         }
     }
 
     public function process_action()
     {
-        if( isset($_POST["update_balances"]) ){
-            if( !get_option('consigne_caisse_db_pathfile_operations') && !get_option('consigne_caisse_db_pathfile_contacts') ) {
+        if (isset($_POST["update_balances"])) {
+            if (!get_option('consigne_caisse_db_pathfile_operations') && !get_option('consigne_caisse_db_pathfile_contacts')) {
                 $this->uploadFirst = true;
-            }
-            else {
+            } else {
                 global $wpdb;
-    
-                $column_mail = isset($_POST["consigne_caisse_go_mail"]) ? $_POST["consigne_caisse_go_mail"] : get_option("consigne_caisse_go_mail"); 
+
+                $column_mail = isset($_POST["consigne_caisse_go_mail"]) ? $_POST["consigne_caisse_go_mail"] : get_option("consigne_caisse_go_mail");
                 $column_balance = isset($_POST["consigne_caisse_go_balance"]) ? $_POST["consigne_caisse_go_balance"] : get_option("consigne_caisse_go_balance");
 
-                $filename_operations = get_option('consigne_caisse_db_pathfile_operations'); 
+                $filename_operations = get_option('consigne_caisse_db_pathfile_operations');
                 $filename_contacts = get_option('consigne_caisse_db_pathfile_contacts');
 
                 try {
                     $contacts = $this->get_csv_content($filename_contacts, array($column_mail, "tContactsPK"));
                     $operations = $this->get_csv_content($filename_operations, array("IDFKContacts", "DateOperation", "HeureOperation", $column_balance));
-                }
-                catch(FileNotFound $e) {
+                } catch (FileNotFound $e) {
                     $this->missingFile = true;
                     return false;
                 }
 
-                if( !$contacts || !$operations ) {
+                if (!$contacts || !$operations) {
                     $this->wrongFiles = true;
                     return false;
                 }
@@ -259,7 +261,7 @@ class ConsignePlugin
 
                 $users_balances = array();
 
-                foreach( $operations as $key => $operation) {
+                foreach ($operations as $key => $operation) {
                     $pk_user = intval($operation["IDFKContacts"]);
                     // $date = explode(" ", $operation["DateOperation"]);
                     // $time = explode(" ", $operation["HeureOperation"]);
@@ -267,12 +269,11 @@ class ConsignePlugin
                     $timestamp = DateTime::createFromFormat('d/m/Y', $operation["DateOperation"]);
                     // var_dump(DateTime::getLastErrors());
 
-                    if( isset($users_balances[$pk_user]) && $users_balances[$pk_user]["date"] < $timestamp ) {
+                    if (isset($users_balances[$pk_user]) && $users_balances[$pk_user]["date"] < $timestamp) {
                         // && $users_balances[$pk_user]["date"]
-                        $users_balances[$pk_user] = array("date"=>$timestamp, "balance"=>floatval($operation[$column_balance]));
-                    }
-                    else if( !isset($users_balances[$pk_user]) ) {
-                        $users_balances[$pk_user] = array("date"=>$timestamp, "balance"=>floatval($operation[$column_balance]));   
+                        $users_balances[$pk_user] = array("date" => $timestamp, "balance" => floatval($operation[$column_balance]));
+                    } else if (!isset($users_balances[$pk_user])) {
+                        $users_balances[$pk_user] = array("date" => $timestamp, "balance" => floatval($operation[$column_balance]));
                     }
                 }
 
@@ -291,16 +292,14 @@ class ConsignePlugin
                 $this->users_failed = array();
                 $this->users_missing = array();
                 foreach ($rows_users as $key => $user) {
-                    if( array_key_exists($users_pk[$user->user_email], $users_balances)) {
+                    if (array_key_exists($users_pk[$user->user_email], $users_balances)) {
                         $res = $wpdb->insert("{$wpdb->prefix}consigne_caisse", array('email' => $user->user_email, 'id' => $user->ID, "balance" => $users_balances[$users_pk[$user->user_email]]["balance"]));
-                        if($res){
+                        if ($res) {
                             $this->users_updated[] = $user->user_email;
-                        }
-                        else {
+                        } else {
                             $this->users_failed[] = $user->user_email;
                         }
-                    }
-                    else {
+                    } else {
                         $this->users_missing[] = $user->user_email;
                     }
                 }
@@ -308,19 +307,21 @@ class ConsignePlugin
                 update_option('consigne_caisse_go_mail', $column_mail);
                 update_option('consigne_caisse_go_balance', $column_balance);
             }
-        }
-        else if( isset($_FILES["consigne_caisse_upload_operations"]) && isset($_FILES["consigne_caisse_upload_contacts"])) {
-            if( $_FILES["consigne_caisse_upload_operations"]["type"] == "text/csv" && $_FILES["consigne_caisse_upload_contacts"]["type"] == "text/csv") {
+        } else if (isset($_FILES["consigne_caisse_upload_operations"]) && isset($_FILES["consigne_caisse_upload_contacts"])) {
+            $authorized_extensions = array("text/csv", "application/vnd.ms-excel");
+            if (in_array($_FILES["consigne_caisse_upload_operations"]["type"], $authorized_extensions) && in_array($_FILES["consigne_caisse_upload_contacts"]["type"], $authorized_extensions)) {
                 $movefile_operations = wp_handle_upload($_FILES["consigne_caisse_upload_operations"], array('test_form' => false));
                 $movefile_contacts = wp_handle_upload($_FILES["consigne_caisse_upload_contacts"], array('test_form' => false));
-                if( $movefile_operations && 
-                    !isset($movefile_operations['error']) && 
-                    $movefile_contacts && 
-                    ! isset($movefile_contacts['error']) ) {
-                    if( get_option('consigne_caisse_db_pathfile_operations') ) {
+                if (
+                    $movefile_operations &&
+                    !isset($movefile_operations['error']) &&
+                    $movefile_contacts &&
+                    !isset($movefile_contacts['error'])
+                ) {
+                    if (get_option('consigne_caisse_db_pathfile_operations')) {
                         unlink(get_option('consigne_caisse_db_pathfile_operations'));
                     }
-                    if( get_option('consigne_caisse_db_pathfile_contacts') ) {
+                    if (get_option('consigne_caisse_db_pathfile_contacts')) {
                         unlink(get_option('consigne_caisse_db_pathfile_contacts'));
                     }
                     update_option('consigne_caisse_db_pathfile_operations', $movefile_operations["file"]);
@@ -328,8 +329,7 @@ class ConsignePlugin
                     update_option('consigne_caisse_last_uploaded', date("d/m/Y H:i:s"));
                     $this->uploadSucceeded = true;
                 }
-            }
-            else {
+            } else {
                 $this->wrongFileExtension = true;
             }
         }
