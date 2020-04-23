@@ -2,11 +2,11 @@
 
 /**
  * Plugin Name: Caisse pour la consigne
- * Plugin URI: https://github.com/giliam/wordpress_mdb_plugin/
+ * Plugin URI: ...
  * Description: Caisse pour la consigne
  * Version: 2.0
  * Author: Giliam
- * Author URI: https://github.com/giliam/
+ * Author URI: ...
  */
 defined('ABSPATH') or die();
 include_once plugin_dir_path(__FILE__) . '/common.php';
@@ -27,6 +27,7 @@ class ConsignePlugin
         $this->wrongFileExtension = false;
         $this->uploadSucceeded = false;
         $this->users_updated = array();
+        // $this->users_updated_values = array();
         $this->users_failed = array();
         $this->users_missing = array();
 
@@ -47,6 +48,7 @@ class ConsignePlugin
 
         update_option('consigne_caisse_go_mail', "Courriel1");
         update_option('consigne_caisse_go_balance', "TotalRestant");
+        update_option('consigne_caisse_go_format_date', "d-m-y");
     }
 
     public static function uninstall()
@@ -66,6 +68,7 @@ class ConsignePlugin
         delete_option('consigne_caisse_last_uploaded');
         delete_option('consigne_caisse_go_mail');
         delete_option('consigne_caisse_go_balance');
+        delete_option('consigne_caisse_go_format_date');
     }
 
     public function add_admin_menu()
@@ -145,6 +148,8 @@ class ConsignePlugin
         }
         ?>
         <form method="post" action="">
+            <p><label>Format de la colonne des dates (d/m/Y pour 01/01/2020 ou d-m-y pour 01-01-20 ou d-m-Y pour 01-01-2020) :</label>
+                <input type="text" name="consigne_caisse_go_format_date" value="<?php echo empty(get_option("consigne_caisse_go_format_date")) ? "d-m-y" : get_option("consigne_caisse_go_format_date"); ?>" /></p>
             <p><label>Nom de la colonne contenant le courriel des utilisateurs</label>
                 <input type="text" name="consigne_caisse_go_mail" value="<?php echo empty(get_option("consigne_caisse_go_mail")) ? "Courriel1" : get_option("consigne_caisse_go_mail"); ?>" /></p>
             <p><label>Nom de la colonne contenant le solde des utilisateurs</label>
@@ -236,6 +241,7 @@ class ConsignePlugin
 
                 $column_mail = isset($_POST["consigne_caisse_go_mail"]) ? $_POST["consigne_caisse_go_mail"] : get_option("consigne_caisse_go_mail");
                 $column_balance = isset($_POST["consigne_caisse_go_balance"]) ? $_POST["consigne_caisse_go_balance"] : get_option("consigne_caisse_go_balance");
+                $format_date = isset($_POST["consigne_caisse_go_format_date"]) ? $_POST["consigne_caisse_go_format_date"] : get_option("consigne_caisse_go_format_date");
 
                 $filename_operations = get_option('consigne_caisse_db_pathfile_operations');
                 $filename_contacts = get_option('consigne_caisse_db_pathfile_contacts');
@@ -266,7 +272,7 @@ class ConsignePlugin
                     // $date = explode(" ", $operation["DateOperation"]);
                     // $time = explode(" ", $operation["HeureOperation"]);
                     // $timestamp = DateTime::createFromFormat('m/d/y H:i:s', $date[0] . " " . $time[1]);
-                    $timestamp = DateTime::createFromFormat('d/m/Y', $operation["DateOperation"]);
+                    $timestamp = DateTime::createFromFormat($format_date, $operation["DateOperation"]);
                     // var_dump(DateTime::getLastErrors());
 
                     if (isset($users_balances[$pk_user]) && $users_balances[$pk_user]["date"] < $timestamp) {
@@ -289,6 +295,7 @@ class ConsignePlugin
                 $rows_users = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}users WHERE user_email IN ('" . implode("', '", array_keys($users_pk)) . "')");
 
                 $this->users_updated = array();
+                // $this->users_updated_values = array();
                 $this->users_failed = array();
                 $this->users_missing = array();
                 foreach ($rows_users as $key => $user) {
@@ -296,6 +303,7 @@ class ConsignePlugin
                         $res = $wpdb->insert("{$wpdb->prefix}consigne_caisse", array('email' => $user->user_email, 'id' => $user->ID, "balance" => $users_balances[$users_pk[$user->user_email]]["balance"]));
                         if ($res) {
                             $this->users_updated[] = $user->user_email;
+                            // $this->users_updated_values[] = $users_balances[$users_pk[$user->user_email]]["balance"];
                         } else {
                             $this->users_failed[] = $user->user_email;
                         }
@@ -306,6 +314,7 @@ class ConsignePlugin
                 update_option('consigne_caisse_last_updated', date("d/m/Y H:i:s"));
                 update_option('consigne_caisse_go_mail', $column_mail);
                 update_option('consigne_caisse_go_balance', $column_balance);
+                update_option('consigne_caisse_go_format_date', $format_date);
             }
         } else if (isset($_FILES["consigne_caisse_upload_operations"]) && isset($_FILES["consigne_caisse_upload_contacts"])) {
             $authorized_extensions = array("text/csv", "application/vnd.ms-excel");
