@@ -44,7 +44,8 @@ class ConsignePlugin
     {
         global $wpdb;
 
-        $wpdb->query("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}consigne_caisse (id INT AUTO_INCREMENT PRIMARY KEY, email VARCHAR(255), balance DOUBLE PRECISION DEFAULT 0.0, last_updated DATETIME DEFAULT CURRENT_TIMESTAMP);");
+        $wpdb->query("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}consigne_caisse_soldes (user_id INT AUTO_INCREMENT PRIMARY KEY, email VARCHAR(255), balance DOUBLE PRECISION DEFAULT 0.0, last_updated DATETIME DEFAULT CURRENT_TIMESTAMP);");
+        $wpdb->query("CREATE TABLE IF NOT EXISTS {$wpdb->prefix}consigne_caisse_factures (fac_id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, ope_id INT, date_ope DATETIME, produit VARCHAR(255), fournisseur INT DEFAULT 0, quantite DOUBLE PRECISION DEFAULT 0.0, prix DOUBLE PRECISION DEFAULT 0.0);");
 
         update_option('consigne_caisse_go_mail', "Courriel1");
         update_option('consigne_caisse_go_balance', "TotalRestant");
@@ -55,15 +56,20 @@ class ConsignePlugin
     {
         global $wpdb;
 
-        $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}consigne_caisse;");
+        $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}consigne_caisse_soldes;");
+        $wpdb->query("DROP TABLE IF EXISTS {$wpdb->prefix}consigne_caisse_factures;");
         if (get_option('consigne_caisse_db_pathfile_operations') && file_exists(get_option('consigne_caisse_db_pathfile_operations'))) {
             unlink(get_option('consigne_caisse_db_pathfile_operations'));
+        }
+        if (get_option('consigne_caisse_db_pathfile_detail_operations') && file_exists(get_option('consigne_caisse_db_pathfile_detail_operations'))) {
+            unlink(get_option('consigne_caisse_db_pathfile_detail_operations'));
         }
         if (get_option('consigne_caisse_db_pathfile_contacts') && file_exists(get_option('consigne_caisse_db_pathfile_contacts'))) {
             unlink(get_option('consigne_caisse_db_pathfile_contacts'));
         }
         delete_option('consigne_caisse_last_updated');
         delete_option('consigne_caisse_db_pathfile_operations');
+        delete_option('consigne_caisse_db_pathfile_detail_operations');
         delete_option('consigne_caisse_db_pathfile_contacts');
         delete_option('consigne_caisse_last_uploaded');
         delete_option('consigne_caisse_go_mail');
@@ -85,16 +91,16 @@ class ConsignePlugin
 
         echo '<h1>' . get_admin_page_title() . '</h1>';
 ?>
-        <h2>Your balance</h2>
+        <h2>Votre balance</h2>
         <p><strong><?php echo $balance; ?></strong></p>
-        <h2>Upload a file</h2>
-        <p>Last upload: <em><?php echo empty($last_uploaded) ? "Inconnu" : $last_uploaded; ?></em></p>
+        <h2>Envoyer un fichier</h2>
+        <p>Dernier envoi : <em><?php echo empty($last_uploaded) ? "Inconnu" : $last_uploaded; ?></em></p>
         <form method="post" action="" enctype="multipart/form-data">
             <?php
             if ($this->uploadSucceeded) {
             ?>
                 <div class="updated">
-                    <p>Upload succeeded!</p>
+                    <p>Envoi réussi !</p>
                 </div>
                 <?php
             }
@@ -102,46 +108,63 @@ class ConsignePlugin
                     if ($this->wrongFileExtension) {
                     ?>
                 <div class="notice notice-error">
-                    <p>Wrong file, sorry!</p>
+                    <p>Mauvais format de fichier !</p>
                 </div>
             <?php
                     }
             ?>
-            <p><label>T_Operation csv file</label>
+            <p><label>T_Operation.csv</label>
                 <input type="file" name="consigne_caisse_upload_operations" /></p>
-            <p><label>tContacts csv file</label>
+            <p><label>T_DetailOperation.csv</label>
+                <input type="file" name="consigne_caisse_upload_detail_operations" /></p>
+            <p><label>tContacts.csv</label>
                 <input type="file" name="consigne_caisse_upload_contacts" /></p>
             <?php submit_button("Upload"); ?>
         </form>
 
-        <h2>Update the balances</h2>
+        <h2>Mettre-à-jour la base de données</h2>
         <p style="<?php if ($last_uploaded && $last_updated && $last_updated < $last_uploaded) { ?>color:red<?php } ?>">Last update: <em><?php echo empty($last_updated) ? "Inconnu" : $last_updated; ?></em> <?php if ($last_uploaded && $last_updated && $last_updated < $last_uploaded) { ?><strong>(outdated)</strong><?php } ?></p>
         <?php
         if ($this->missingFile) {
         ?>
             <div class="notice notice-error">
-                <p>A file is missing!</p>
+                <p>Il manque un fichier !</p>
             </div>
         <?php
         }
         if ($this->wrongFiles) {
         ?>
             <div class="notice notice-error">
-                <p>Are you sure about your files? There should be <code><?php echo get_option("consigne_caisse_go_mail") ?></code> and <code>tContactsPK</code> headers in <em>Contacts file</em> and <code>IDFKContacts</code>, <code>DateOperation</code>, <code>HeureOperation</code>, <code><?php echo get_option("consigne_caisse_go_balance"); ?></code>, <code>tContactsPK</code> in <em>T_Operation file</em>.</p>
+                <p>Êtes-vous sûr de vos fichiers ? Il devrait y avoir les fichiers suivants :</p>
+                <ul>
+                    <li>
+                        <code><?php echo get_option("consigne_caisse_go_mail") ?></code> et
+                        <code>tContactsPK</code> comme entêtes dans le fichier des <em>Contacts</em>;
+                    </li>
+                    <li>
+                        <code>IdOperation</code>, <code>IdProduit</code>, <code>DesignationProduit</code>,
+                        <code>Quantite</code>, <code>PrixUnitaire</code>, <code>TauxTVA</code> dans le
+                        fichier <em>T_DetailOperation</em>;
+                    </li>
+                    <li>
+                        <code><?php echo get_option("consigne_caisse_go_balance"); ?></code>,
+                        <code>tContactsPK</code> dans le fichier <em>T_Operation</em>.
+                    </li>
+                </ul>
             </div>
         <?php
         }
         if ($this->uploadFirst) {
         ?>
             <div class="notice notice-error">
-                <p>Upload the database first!</p>
+                <p>Il faut envoyer les fichiers au préalable!</p>
             </div>
         <?php
         }
         if ($this->errorMessage) {
         ?>
             <div class="notice notice-error">
-                <p>Error during the import...</p>
+                <p>Erreurs durant l'importation...</p>
                 <p><?php echo $this->errorMessage; ?></p>
             </div>
         <?php
@@ -161,7 +184,7 @@ class ConsignePlugin
         if (!empty($this->users_updated)) {
         ?>
             <div class="notice notice-success">
-                <p>Updated balance of following users succeeded:</p>
+                <p>A bien mis-à-jour les balances des utilisateurs suivants :</p>
                 <ul>
                     <?php
                     foreach ($this->users_updated as $key => $user) {
@@ -176,7 +199,7 @@ class ConsignePlugin
         ?>
 
             <div class="notice notice-warning">
-                <p>Following users' data missing:</p>
+                <p>Il manque les données des utilisateurs suivants :</p>
                 <ul>
                     <?php
                     foreach ($this->users_missing as $key => $user) {
@@ -191,7 +214,7 @@ class ConsignePlugin
         ?>
 
             <div class="notice notice-error">
-                <p>Following users' updates failed:</p>
+                <p>La mise-à-jour des utilisateurs suivants a échoué :</p>
                 <ul>
                     <?php
                     foreach ($this->users_failed as $key => $user) {
@@ -234,7 +257,11 @@ class ConsignePlugin
     public function process_action()
     {
         if (isset($_POST["update_balances"])) {
-            if (!get_option('consigne_caisse_db_pathfile_operations') && !get_option('consigne_caisse_db_pathfile_contacts')) {
+            if (
+                !get_option('consigne_caisse_db_pathfile_operations')
+                && !get_option('consigne_caisse_db_pathfile_detail_operations')
+                && !get_option('consigne_caisse_db_pathfile_contacts')
+            ) {
                 $this->uploadFirst = true;
             } else {
                 global $wpdb;
@@ -244,10 +271,15 @@ class ConsignePlugin
                 $format_date = isset($_POST["consigne_caisse_go_format_date"]) ? $_POST["consigne_caisse_go_format_date"] : get_option("consigne_caisse_go_format_date");
 
                 $filename_operations = get_option('consigne_caisse_db_pathfile_operations');
+                $filename_detail_operations = get_option('consigne_caisse_db_pathfile_detail_operations');
                 $filename_contacts = get_option('consigne_caisse_db_pathfile_contacts');
 
                 try {
                     $contacts = $this->get_csv_content($filename_contacts, array($column_mail, "tContactsPK"));
+                    $detail_operations = $this->get_csv_content(
+                        $filename_detail_operations,
+                        array("IdOperation", "IdProduit", "DesignationProduit", "Quantite", "PrixUnitaire", "TauxTVA")
+                    );
                     $operations = $this->get_csv_content($filename_operations, array("IDFKContacts", "DateOperation", "HeureOperation", $column_balance));
                 } catch (FileNotFound $e) {
                     $this->missingFile = true;
@@ -264,8 +296,8 @@ class ConsignePlugin
                     $users_pk[esc_sql($contact[$column_mail])] = intval($contact["tContactsPK"]);
                 }
 
-
                 $users_balances = array();
+                $users_operations = array();
 
                 foreach ($operations as $key => $operation) {
                     $pk_user = intval($operation["IDFKContacts"]);
@@ -275,12 +307,31 @@ class ConsignePlugin
                     $timestamp = DateTime::createFromFormat($format_date, $operation["DateOperation"]);
                     // var_dump(DateTime::getLastErrors());
 
+                    if (!isset($users_operations[$pk_user])) {
+                        $users_operations[$pk_user] = array();
+                    }
+                    $users_operations[$pk_user][] = array("id" => $operation["IdOperation"], "date" => $timestamp->format("Y-m-d"));
+
                     if (isset($users_balances[$pk_user]) && $users_balances[$pk_user]["date"] < $timestamp) {
                         // && $users_balances[$pk_user]["date"]
                         $users_balances[$pk_user] = array("date" => $timestamp, "balance" => floatval($operation[$column_balance]));
                     } else if (!isset($users_balances[$pk_user])) {
                         $users_balances[$pk_user] = array("date" => $timestamp, "balance" => floatval($operation[$column_balance]));
                     }
+                }
+
+                $operations_details = array();
+
+                foreach ($detail_operations as $key => $ope) {
+                    if (!isset($operations_details[$ope["IdOperation"]])) {
+                        $operations_details[$ope["IdOperation"]] = array();
+                    }
+                    $operations_details[$ope["IdOperation"]][] = array(
+                        "produit" => $ope["DesignationProduit"],
+                        "fournisseur" => $ope["idFournisseur"],
+                        "quantite" => $ope["Quantite"],
+                        "prix" => $ope["PrixUnitaire"]
+                    );
                 }
 
                 // In case users are missing => default value.
@@ -291,7 +342,8 @@ class ConsignePlugin
                 //     }
                 // }
 
-                $wpdb->query("TRUNCATE {$wpdb->prefix}consigne_caisse;");
+                $wpdb->query("TRUNCATE {$wpdb->prefix}consigne_caisse_soldes;");
+                $wpdb->query("TRUNCATE {$wpdb->prefix}consigne_caisse_factures;");
                 $rows_users = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}users WHERE user_email IN ('" . implode("', '", array_keys($users_pk)) . "')");
 
                 $this->users_updated = array();
@@ -299,8 +351,32 @@ class ConsignePlugin
                 $this->users_failed = array();
                 $this->users_missing = array();
                 foreach ($rows_users as $key => $user) {
+                    if (array_key_exists($users_pk[$user->user_email], $users_operations)) {
+                        foreach ($users_operations[$users_pk[$user->user_email]] as $ope_key => $ope_param) {
+                            $id_ope = $ope_param["id"];
+                            $date_ope = $ope_param["date"];
+                            if (isset($operations_details[$id_ope]) && !empty($operations_details[$id_ope])) {
+                                $ope_details = $operations_details[$id_ope];
+                                foreach ($ope_details as $detail_key => $ope) {
+                                    $res = $wpdb->insert(
+                                        "{$wpdb->prefix}consigne_caisse_factures",
+                                        array(
+                                            'user_id' => $user->ID,
+                                            'ope_id' => $id_ope,
+                                            'date_ope' => $date_ope,
+                                            'produit' => $ope["produit"],
+                                            'fournisseur' => $ope["fournisseur"],
+                                            'quantite' => $ope["quantite"],
+                                            'prix' => $ope["prix"]
+                                        )
+                                    );
+                                }
+                            }
+                        }
+                    }
+
                     if (array_key_exists($users_pk[$user->user_email], $users_balances)) {
-                        $res = $wpdb->insert("{$wpdb->prefix}consigne_caisse", array('email' => $user->user_email, 'id' => $user->ID, "balance" => $users_balances[$users_pk[$user->user_email]]["balance"]));
+                        $res = $wpdb->insert("{$wpdb->prefix}consigne_caisse_soldes", array('email' => $user->user_email, 'user_id' => $user->ID, "balance" => $users_balances[$users_pk[$user->user_email]]["balance"]));
                         if ($res) {
                             $this->users_updated[] = $user->user_email;
                             // $this->users_updated_values[] = $users_balances[$users_pk[$user->user_email]]["balance"];
@@ -316,23 +392,34 @@ class ConsignePlugin
                 update_option('consigne_caisse_go_balance', $column_balance);
                 update_option('consigne_caisse_go_format_date', $format_date);
             }
-        } else if (isset($_FILES["consigne_caisse_upload_operations"]) && isset($_FILES["consigne_caisse_upload_contacts"])) {
+        } else if (isset($_FILES["consigne_caisse_upload_operations"]) && isset($_FILES["consigne_caisse_upload_contacts"]) && isset($_FILES["consigne_caisse_upload_detail_operations"])) {
             $authorized_extensions = array("text/csv", "application/vnd.ms-excel");
-            if (in_array($_FILES["consigne_caisse_upload_operations"]["type"], $authorized_extensions) && in_array($_FILES["consigne_caisse_upload_contacts"]["type"], $authorized_extensions)) {
+            if (
+                in_array($_FILES["consigne_caisse_upload_operations"]["type"], $authorized_extensions)
+                && in_array($_FILES["consigne_caisse_upload_contacts"]["type"], $authorized_extensions)
+                && in_array($_FILES["consigne_caisse_upload_detail_operations"]["type"], $authorized_extensions)
+            ) {
                 $movefile_operations = wp_handle_upload($_FILES["consigne_caisse_upload_operations"], array('test_form' => false));
+                $movefile_detail_operations = wp_handle_upload($_FILES["consigne_caisse_upload_detail_operations"], array('test_form' => false));
                 $movefile_contacts = wp_handle_upload($_FILES["consigne_caisse_upload_contacts"], array('test_form' => false));
                 if (
                     $movefile_operations &&
                     !isset($movefile_operations['error']) &&
+                    $movefile_detail_operations &&
+                    !isset($movefile_detail_operations['error']) &&
                     $movefile_contacts &&
                     !isset($movefile_contacts['error'])
                 ) {
                     if (get_option('consigne_caisse_db_pathfile_operations')) {
                         unlink(get_option('consigne_caisse_db_pathfile_operations'));
                     }
+                    if (get_option('consigne_caisse_db_pathfile_detail_operations')) {
+                        unlink(get_option('consigne_caisse_db_pathfile_detail_operations'));
+                    }
                     if (get_option('consigne_caisse_db_pathfile_contacts')) {
                         unlink(get_option('consigne_caisse_db_pathfile_contacts'));
                     }
+                    update_option('consigne_caisse_db_pathfile_detail_operations', $movefile_detail_operations["file"]);
                     update_option('consigne_caisse_db_pathfile_operations', $movefile_operations["file"]);
                     update_option('consigne_caisse_db_pathfile_contacts', $movefile_contacts["file"]);
                     update_option('consigne_caisse_last_uploaded', date("d/m/Y H:i:s"));
