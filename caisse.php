@@ -11,6 +11,7 @@
 defined('ABSPATH') or die();
 include_once plugin_dir_path(__FILE__) . '/common.php';
 include_once plugin_dir_path(__FILE__) . '/caisse_widget.php';
+include_once plugin_dir_path(__FILE__) . '/factures.php';
 
 class FileNotFound extends Exception
 {
@@ -38,6 +39,7 @@ class ConsignePlugin
         add_action('widgets_init', function () {
             register_widget('ConsigneCaisseWidget');
         });
+        add_action('plugins_loaded', array('PageTemplater', 'get_instance'));
     }
 
     public static function install()
