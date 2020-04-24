@@ -190,9 +190,13 @@ class ConsignePlugin
                 <ul>
                     <?php
                     foreach ($this->users_updated as $key => $user) {
-                    ?><li>- <?php echo $user; ?></li><?php
-                                                    }
-                                                        ?>
+                    ?><li>
+                            - <?php echo $user; ?>
+                            <?php //echo $this->users_updated_values[$key] . "€"; 
+                            ?>
+                        </li><?php
+                            }
+                                ?>
                 </ul>
             </div>
         <?php
@@ -349,7 +353,7 @@ class ConsignePlugin
                 $rows_users = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}users WHERE user_email IN ('" . implode("', '", array_keys($users_pk)) . "')");
 
                 $this->users_updated = array();
-                // $this->users_updated_values = array();
+                $this->users_updated_values = array();
                 $this->users_failed = array();
                 $this->users_missing = array();
                 foreach ($rows_users as $key => $user) {
@@ -381,7 +385,7 @@ class ConsignePlugin
                         $res = $wpdb->insert("{$wpdb->prefix}consigne_caisse_soldes", array('email' => $user->user_email, 'user_id' => $user->ID, "balance" => $users_balances[$users_pk[$user->user_email]]["balance"]));
                         if ($res) {
                             $this->users_updated[] = $user->user_email;
-                            // $this->users_updated_values[] = $users_balances[$users_pk[$user->user_email]]["balance"];
+                            $this->users_updated_values[] = $users_balances[$users_pk[$user->user_email]]["balance"];
                         } else {
                             $this->users_failed[] = $user->user_email;
                         }
