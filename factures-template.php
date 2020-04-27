@@ -24,11 +24,18 @@ if (!is_user_logged_in()) {
 global $wpdb;
 $user_pk = get_current_user_id();
 $query_invoices = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}consigne_caisse_factures WHERE user_id = " . intval($user_pk) . " ORDER BY date_ope DESC, ope_id, fournisseur, produit");
+$query_accomptes = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}consigne_caisse_accomptes WHERE user_id = " . intval($user_pk) . " ORDER BY date_ope DESC");
 $balance = get_current_user_balance();
+$accomptes = array();
+foreach ($query_accomptes as $key => $accompte) {
+    $date_ope = DateTime::createFromFormat("Y-m-d 00:00:00", $accompte->date_ope);
+    $accomptes[] = array("date_ope" => $date_ope, "valeur" => $accompte->valeur);
+}
 $invoices = array();
 foreach ($query_invoices as $key => $invoice) {
     if (!array_key_exists($invoice->ope_id, $invoices)) {
-        $invoices[$invoice->ope_id] = array("total" => 0.0, "date_ope" => $invoice->date_ope, "operations" => array());
+        $date_ope = DateTime::createFromFormat("Y-m-d 00:00:00", $invoice->date_ope);
+        $invoices[$invoice->ope_id] = array("total" => 0.0, "date_ope" => $date_ope, "operations" => array());
     }
 
     $invoices[$invoice->ope_id]["total"] += (float) $invoice->prix * (float) $invoice->quantite;
@@ -48,10 +55,16 @@ get_header();
                     <div class="elementor-section-wrap">
                         <?php
                         foreach ($invoices as $key => $invoice) {
+                            while ($accomptes[0]["date_ope"] > $invoice["date_ope"]) {
+                                $accompte = array_shift($accomptes);
                         ?>
+                                <h4>Accompte du <?php echo $accompte["date_ope"]->format("d m Y"); ?></h4>
+                                <p>Versement de <?php echo $accompte["valeur"]; ?>€</p>
+                            <?php
+                            }
+                            ?>
                             <h4>
-                                Commande du <?php $date_ope = DateTime::createFromFormat("Y-m-d 00:00:00", $invoice["date_ope"]);
-                                            echo $date_ope->format("d m Y"); ?>
+                                Commande du <?php echo $invoice["date_ope"]->format("d m Y"); ?>
                             </h4>
                             <p>Vous avez acheté <?php echo count($invoice["operations"]); ?> produits pour un total de <?php echo number_format($invoice["total"], 2); ?>€</p>
                             <p onClick="hide_invoice('invoice<?php echo $key; ?>')" style="font-size:0.8em; padding-left: 10px; text-decoration: underline;"><em>... Cliquez ici pour voir le détail</em></p>
@@ -75,6 +88,14 @@ get_header();
                                 }
                                 ?>
                             </table>
+                        <?php
+                        }
+
+                        while (count($accomptes) > 0) {
+                            $accompte = array_shift($accomptes);
+                        ?>
+                            <h4>Accompte du <?php echo $accompte["date_ope"]->format("d m Y"); ?></h4>
+                            <p>Versement de <?php echo $accompte["valeur"]; ?>€</p>
                         <?php
                         }
 
