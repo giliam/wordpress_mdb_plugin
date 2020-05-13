@@ -17,14 +17,19 @@ include_once plugin_dir_path(__FILE__) . '/common.php';
 
 <?php
 if (!is_user_logged_in()) {
-    wp_redirect("/");
+    wp_redirect("/membres/");
     exit;
 }
 
 global $wpdb;
 $user_pk = get_current_user_id();
-$query_invoices = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}consigne_caisse_factures WHERE user_id = " . intval($user_pk) . " ORDER BY date_ope DESC, ope_id, fournisseur, produit");
-$query_accomptes = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}consigne_caisse_accomptes WHERE user_id = " . intval($user_pk) . " ORDER BY date_ope DESC");
+if (current_user_can("list_users") && isset($_GET["pk"])) {
+    $user_pk = intval($_GET["pk"]);
+}
+$user = get_userdata($user_pk);
+
+$query_invoices = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}consigne_caisse_factures WHERE user_id = " . intval($user_pk) . " OR email = '" . esc_sql($user->user_email) . "' ORDER BY date_ope DESC, ope_id, fournisseur, produit");
+$query_accomptes = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}consigne_caisse_accomptes WHERE user_id = " . intval($user_pk) . " OR email = '" . esc_sql($user->user_email) . "' ORDER BY date_ope DESC");
 $balance = get_current_user_balance();
 $accomptes = array();
 foreach ($query_accomptes as $key => $accompte) {
@@ -41,18 +46,23 @@ foreach ($query_invoices as $key => $invoice) {
     $invoices[$invoice->ope_id]["total"] += (float) $invoice->prix * (float) $invoice->quantite;
     $invoices[$invoice->ope_id]["operations"][] = $invoice;
 }
+
+$balance = get_user_balance($user_pk, $user->user_email);
+
 get_header();
 ?>
 <section id="primary" class="content-area">
     <main id="main" class="site-main" role="main">
 
         <header class="page-header">
-            <h1 class="page-title">Vos factures</h1>
+            <h1 class="page-title">Votre compte</h1>
         </header><!-- .page-header -->
         <div class="page-content">
             <div data-elementor-type="wp-post" data-elementor-settings="[]">
                 <div class="elementor-inner">
                     <div class="elementor-section-wrap">
+                        <h2 style="<?php if ($balance < 0) { ?>color:red<?php } ?>">Votre solde : <?php echo $balance; ?></h2>
+                        <h2>Vos factures</h2>
                         <?php
                         foreach ($invoices as $key => $invoice) {
                             while ($accomptes[0]["date_ope"] > $invoice["date_ope"]) {
