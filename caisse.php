@@ -106,6 +106,7 @@ class ConsignePlugin
         <h2>Votre balance</h2>
         <p><strong><?php echo $balance; ?></strong></p>
         <h2>Envoyer un fichier</h2>
+        <h3>Via les tables</h3>
         <p>Dernier envoi : <em><?php echo empty($last_uploaded) ? "Inconnu" : date("d/m/Y H:i:s", $last_uploaded); ?></em></p>
         <form method="post" action="" enctype="multipart/form-data">
             <?php
@@ -133,6 +134,29 @@ class ConsignePlugin
                 <input type="file" name="consigne_caisse_upload_contacts" /></p>
             <p><label>tAccomptes.csv</label>
                 <input type="file" name="consigne_caisse_upload_accomptes" /></p>
+            <?php submit_button("Upload"); ?>
+        </form>
+        <h3>Via le mdb</h3>
+        <form method="post" action="" enctype="multipart/form-data">
+            <?php
+            if ($this->uploadSucceededMdb) {
+            ?>
+                <div class="updated">
+                    <p>Envoi réussi !</p>
+                </div>
+                <?php
+            }
+                ?><?php
+                    if ($this->wrongFileExtensionMdb) {
+                    ?>
+                <div class="notice notice-error">
+                    <p>Mauvais format de fichier !</p>
+                </div>
+            <?php
+                    }
+            ?>
+            <label>File to upload</label>
+            <input type="file" name="consigne_caisse_upload_mdb" />
             <?php submit_button("Upload"); ?>
         </form>
 
@@ -508,6 +532,45 @@ class ConsignePlugin
                 }
             } else {
                 $this->wrongFileExtension = true;
+            }
+        } else if (isset($_FILES["consigne_caisse_upload_mdb"])) {
+            if ($_FILES["consigne_caisse_upload_mdb"]["type"] == "application/octet-stream") {
+                define('ALLOW_UNFILTERED_UPLOADS', true);
+                $movefilemdb = wp_handle_upload($_FILES["consigne_caisse_upload_mdb"], array('test_form' => false));
+                define('ALLOW_UNFILTERED_UPLOADS', false);
+                if ($movefilemdb && !isset($movefilemdb['error'])) {
+                    if (get_option('consigne_caisse_db_mdbfile')) {
+                        unlink(get_option('consigne_caisse_db_mdbfile'));
+                    }
+                    update_option('consigne_caisse_db_mdbfile', $movefilemdb["file"]);
+                    $cURLConnection = curl_init("http://localhost/consigne/backend.php");
+                    $timestamp = time();
+                    require_once "key.php";
+                    echo date("d/m/Y", $timestamp) . $secret_key . date("H:i:s", $timestamp);
+                    echo "<br />";
+                    $token = hash("sha256", date("d/m/Y", $timestamp) . $secret_key . date("H:i:s", $timestamp));
+                    unset($secret_key);
+                    $postRequest = array(
+                        'token' => $token,
+                        'date' => date("d/m/Y", $timestamp),
+                        'hour' => date("H:i:s", $timestamp),
+                        'file' => '@' . realpath($movefilemdb["file"])
+                    );
+                    curl_setopt($cURLConnection, CURLOPT_POSTFIELDS, $postRequest);
+                    curl_setopt($cURLConnection, CURLOPT_RETURNTRANSFER, true);
+                    $apiResponse = curl_exec($cURLConnection);
+                    curl_close($cURLConnection);
+                    print_r($apiResponse);
+                    exit();
+
+                    update_option('consigne_caisse_last_uploaded_mdb', date("d/m/Y H:i:s"));
+                    $this->uploadSucceededMdb = true;
+                } else {
+                    var_dump($movefilemdb);
+                    exit();
+                }
+            } else {
+                $this->wrongFileExtensionMdb = true;
             }
         }
     }
