@@ -24,6 +24,7 @@ class ConsignePlugin
         $this->uploadFirst = false;
         $this->missingFile = false;
         $this->wrongFiles = false;
+        $this->failed_format = false;
         $this->errorMessage = false;
         $this->wrongFileExtension = false;
         $this->uploadSucceeded = false;
@@ -167,6 +168,13 @@ class ConsignePlugin
         ?>
             <div class="notice notice-error">
                 <p>Il manque un fichier !</p>
+            </div>
+        <?php
+        }
+        if ($this->failed_format) {
+        ?>
+            <div class="notice notice-error">
+                <p>Le format pour les dates est erroné : la valeur rentrée est <?php echo $this->failed_format["value_format"]; ?> tandis que le format indiqué était <?php echo $this->failed_format["format"]; ?> !</p>
             </div>
         <?php
         }
@@ -362,6 +370,11 @@ class ConsignePlugin
                         $accomptes_added[$pk_user] = array();
                     }
                     $timestamp = DateTime::createFromFormat($format_date_accomptes, $ope["AccompteDate"]);
+                    if (!$timestamp) {
+                        $this->failed_format = array("format" => $format_date_accomptes, "value_format" => $ope["AccompteDate"]);
+                        return false;
+                    }
+
                     $accomptes_added[$pk_user][] = array(
                         "date" => $timestamp->format("Y-m-d"),
                         "valeur" => (float) $ope["AccompteMt"]
@@ -377,6 +390,10 @@ class ConsignePlugin
                     // $time = explode(" ", $operation["HeureOperation"]);
                     // $timestamp = DateTime::createFromFormat('m/d/y H:i:s', $date[0] . " " . $time[1]);
                     $timestamp = DateTime::createFromFormat($format_date_ope, $operation["DateOperation"]);
+                    if (!$timestamp) {
+                        $this->failed_format = array("format" => $format_date_ope, "value_format" => $operation["DateOperation"]);
+                        return false;
+                    }
                     // var_dump(DateTime::getLastErrors());
 
                     if (!isset($users_operations[$pk_user])) {
