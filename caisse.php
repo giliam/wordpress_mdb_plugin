@@ -25,6 +25,7 @@ class ConsignePlugin
         $this->uploadFirst = false;
         $this->missingFile = false;
         $this->wrongFiles = false;
+        $this->wrongFilesBools = array();
         $this->failed_format = false;
         $this->errorMessage = false;
         $this->wrongFileExtension = false;
@@ -199,25 +200,25 @@ class ConsignePlugin
                 <ul>
                     <li>
                         <code><?php echo get_option("consigne_caisse_go_mail") ?></code> et
-                        <code>tContactsPK</code> comme entêtes dans le fichier des <em>Contacts</em>;
+                        <code>tContactsPK</code> comme entêtes dans le fichier des <em>Contacts</em> (statut : <?php echo $this->wrongFilesBools["contacts"] ? "OK" : "Pas ok"; ?>);
                     </li>
                     <li>
                         <code>IdOperation</code>, <code>IdProduit</code>, <code>DesignationProduit</code>,
                         <code>Quantite</code>, <code>PrixUnitaire</code>, <code>TauxTVA</code> dans le
-                        fichier <em>T_DetailOperation</em>;
+                        fichier <em>T_DetailOperation</em> (statut : <?php echo $this->wrongFilesBools["detail_operations"] ? "OK" : "Pas ok"; ?>);
                     </li>
                     <li>
                         <code><?php echo get_option("consigne_caisse_go_balance"); ?></code>,
                         <code>IDFKContacts</code>,
                         <code>DateOperation</code> et
                         <code>HeureOperation</code>
-                        dans le fichier <em>T_Operation</em>.
+                        dans le fichier <em>T_Operation</em> (statut : <?php echo $this->wrongFilesBools["operations"] ? "OK" : "Pas ok"; ?>).
                     </li>
                     <li>
                         <code>tContactsFK</code>,
                         <code>AccompteDate</code> et
                         <code>AccompteMt</code>
-                        dans le fichier <em>tAccomptes</em>.
+                        dans le fichier <em>tAccomptes</em> (statut : <?php echo $this->wrongFilesBools["accomptes"] ? "OK" : "Pas ok"; ?>).
                     </li>
                 </ul>
             </div>
@@ -387,6 +388,12 @@ class ConsignePlugin
 
                 if (!$contacts || !$operations || !$detail_operations || !$accomptes) {
                     $this->wrongFiles = true;
+                    $this->wrongFilesBools = array(
+                        "contacts" => $contacts,
+                        "operations" => $operations,
+                        "detail_operations" => $detail_operations,
+                        "accomptes" => $accomptes,
+                    );
                     return false;
                 }
                 $users_pk = array();
