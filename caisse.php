@@ -24,13 +24,18 @@ class ConsignePlugin
     {
         $this->uploadFirst = false;
         $this->missingFile = false;
+        $this->alreadyUpToDate = false;
         $this->wrongFiles = false;
         $this->wrongFilesBools = array();
         $this->failed_format = false;
         $this->errorMessage = false;
         $this->wrongFileExtension = false;
         $this->uploadSucceeded = false;
+        $this->uploadSucceededMdb = false;
+        $this->uploadFailedMdb = false;
+        $this->uploadSucceededMdbResponse = array();
         $this->users_updated = array();
+        $this->successUploadMdb = array("all" => true);
         // $this->users_updated_values = array();
         $this->users_failed = array();
         $this->users_missing = array();
@@ -150,6 +155,13 @@ class ConsignePlugin
         <p>Dernier envoi : <em><?php echo empty($last_uploaded_mdb) ? "Inconnu" : date("d/m/Y H:i:s", $last_uploaded_mdb); ?></em></p>
         <form method="post" action="" enctype="multipart/form-data">
             <?php
+            if ($this->uploadFailedMdb) {
+            ?>
+                <div class="notice notice-error">
+                    <p>Une erreur inconnue est survenue lors de l'envoi.</p>
+                </div>
+            <?php
+            }
             if ($this->uploadSucceededMdb) {
             ?>
                 <div class="updated">
@@ -165,6 +177,19 @@ class ConsignePlugin
                 </div>
             <?php
                     }
+                    if (!empty($this->successUploadMdb) && !$this->successUploadMdb["all"]) {
+            ?>
+                <div class="notice notice-error">
+                    <p>Il manque un élément dans le fichier Mdb !</p>
+                    <ul>
+                        <li>accomptes : <?php echo $this->successUploadMdb["accomptes"] ? "OK" : "Pas ok"; ?></li>
+                        <li>detail_operations : <?php echo $this->successUploadMdb["detail_operations"] ? "OK" : "Pas ok"; ?></li>
+                        <li>operations : <?php echo $this->successUploadMdb["operations"] ? "OK" : "Pas ok"; ?></li>
+                        <li>users : <?php echo $this->successUploadMdb["users"] ? "OK" : "Pas ok"; ?></li>
+                    </ul>
+                </div>
+            <?php
+                    }
             ?>
             <label>File to upload</label>
             <input type="file" name="consigne_caisse_upload_mdb" />
@@ -172,13 +197,20 @@ class ConsignePlugin
         </form>
 
         <h2>Mettre-à-jour la base de données</h2>
-        <p style="<?php if (($last_uploaded || $last_uploaded_mdb) && $last_updated && ($last_updated < $last_uploaded || $last_updated < $last_uploaded_mdb)) { ?>color:red<?php } ?>">Last update: <em><?php echo empty($last_updated) ? "Inconnu" : date("d/m/Y H:i:s", $last_updated); ?></em> <?php if ($last_uploaded && $last_updated && $last_updated < $last_uploaded) { ?><strong>(outdated)</strong><?php } ?></p>
-        <?php if ($last_uploaded && $last_updated && $last_updated < $last_uploaded) { ?>
+        <p style="<?php if (($last_uploaded || $last_uploaded_mdb) && (!$last_updated || $last_updated < $last_uploaded || $last_updated < $last_uploaded_mdb)) { ?>color:red<?php } ?>">Last update: <em><?php echo empty($last_updated) ? "Inconnu" : date("d/m/Y H:i:s", $last_updated); ?></em> <?php if ($last_uploaded && $last_updated && $last_updated < $last_uploaded) { ?><strong>(outdated)</strong><?php } ?></p>
+        <?php if ($last_uploaded && (!$last_updated || $last_updated < $last_uploaded) && (!$last_uploaded_mdb || $last_uploaded_mdb < $last_uploaded)) { ?>
             <p>Sera mis-à-jour à partir des données des fichiers <strong>CSV</strong></p>
-        <?php } else if ($last_uploaded_mdb && $last_updated && $last_updated < $last_uploaded_mdb) { ?>
+        <?php } else if ($last_uploaded_mdb && (!$last_updated || $last_updated < $last_uploaded_mdb)) { ?>
             <p>Sera mis-à-jour à partir des données du fichier <strong>MDB</strong></p>
         <?php } ?>
         <?php
+        if ($this->alreadyUpToDate) {
+        ?>
+            <div class="notice notice-success">
+                <p>Données déjà à jour !</p>
+            </div>
+        <?php
+        }
         if ($this->missingFile) {
         ?>
             <div class="notice notice-error">
@@ -355,7 +387,7 @@ class ConsignePlugin
                 $last_uploaded_mdb = get_option('consigne_caisse_last_uploaded_mdb');
                 $last_updated = get_option('consigne_caisse_last_updated');
 
-                if ($last_uploaded && $last_updated && $last_updated < $last_uploaded) {
+                if ($last_uploaded && (!$last_updated || $last_updated < $last_uploaded) && (!$last_uploaded_mdb || $last_uploaded_mdb < $last_uploaded)) {
                     $filename_operations = get_option('consigne_caisse_db_pathfile_operations');
                     $filename_accomptes = get_option('consigne_caisse_db_pathfile_accomptes');
                     $filename_detail_operations = get_option('consigne_caisse_db_pathfile_detail_operations');
@@ -373,16 +405,14 @@ class ConsignePlugin
                         $this->missingFile = true;
                         return false;
                     }
-                } else if ($last_uploaded_mdb && $last_updated && $last_updated < $last_uploaded_mdb) {
-                    try {
-                        $contacts = get_option('consigne_caisse_db_raw_contacts');
-                        $operations = get_option('consigne_caisse_db_raw_operations');
-                        $accomptes = get_option('consigne_caisse_db_raw_accomptes');
-                        $detail_operations = get_option('consigne_caisse_db_raw_detail_operations');
-                    } catch (FileNotFound $e) {
-                        $this->missingFile = true;
-                        return false;
-                    }
+                } else if ($last_uploaded_mdb && (!$last_updated || $last_updated < $last_uploaded_mdb)) {
+                    $contacts = get_option('consigne_caisse_db_raw_contacts');
+                    $operations = get_option('consigne_caisse_db_raw_operations');
+                    $accomptes = get_option('consigne_caisse_db_raw_accomptes');
+                    $detail_operations = get_option('consigne_caisse_db_raw_detail_operations');
+                } else {
+                    $this->alreadyUpToDate = true;
+                    return true;
                 }
 
 
@@ -619,28 +649,54 @@ class ConsignePlugin
                         'hour' => date("H:i:s", $timestamp),
                         'file' => $cfile,
                     );
+
                     curl_setopt($cURLConnection, CURLOPT_POST, 1);
                     curl_setopt($cURLConnection, CURLOPT_POSTFIELDS, $postRequest);
-                    curl_setopt($cURLConnection, CURLOPT_HTTPHEADER, array('Content-Type:application/json'));
+                    //curl_setopt($cURLConnection, CURLOPT_HTTPHEADER, array('Content-Type:application/json'));
                     curl_setopt($cURLConnection, CURLOPT_RETURNTRANSFER, true);
                     $apiResponse = curl_exec($cURLConnection);
-                    $apiResponse = json_decode($apiResponse, true);
                     curl_close($cURLConnection);
+                    if (!$apiResponse) {
+                        $this->uploadFailedMdb = true;
+                    } else {
+                        $apiResponse = json_decode($apiResponse, true);
 
-                    $products = array();
-                    foreach ($apiResponse["products"] as $product) {
-                        $products[$product["IdProduit"]] = $product["DesignationProduit"];
-                    }
-                    foreach ($apiResponse["detail_operations"] as $opeKey => $ope) {
-                        $apiResponse["detail_operations"][$opeKey]["DesignationProduit"] = $products[$ope["IdProduit"]];
-                    }
+                        $products = array();
+                        foreach ($apiResponse["products"] as $product) {
+                            $products[$product["IdProduit"]] = $product["DesignationProduit"];
+                        }
+                        foreach ($apiResponse["detail_operations"] as $opeKey => $ope) {
+                            $apiResponse["detail_operations"][$opeKey]["DesignationProduit"] = $products[$ope["IdProduit"]];
+                        }
 
-                    update_option('consigne_caisse_db_raw_accomptes', $apiResponse["accomptes"]);
-                    update_option('consigne_caisse_db_raw_detail_operations', $apiResponse["detail_operations"]);
-                    update_option('consigne_caisse_db_raw_operations', $apiResponse["operations"]);
-                    update_option('consigne_caisse_db_raw_contacts', $apiResponse["users"]);
-                    update_option('consigne_caisse_last_uploaded_mdb', time());
-                    $this->uploadSucceededMdb = true;
+                        if (!get_option("consigne_caisse_db_raw_accomptes") || get_option("consigne_caisse_db_raw_accomptes") != $apiResponse["accomptes"])
+                            $this->successUploadMdb["accomptes"] = update_option('consigne_caisse_db_raw_accomptes', $apiResponse["accomptes"]);
+                        else {
+                            $this->successUploadMdb["accomptes"] = true;
+                        }
+                        if (!get_option("consigne_caisse_db_raw_detail_operations") || get_option("consigne_caisse_db_raw_detail_operations") != $apiResponse["detail_operations"])
+                            $this->successUploadMdb["detail_operations"] = update_option('consigne_caisse_db_raw_detail_operations', $apiResponse["detail_operations"]);
+                        else {
+                            $this->successUploadMdb["detail_operations"] = true;
+                        }
+                        if (!get_option("consigne_caisse_db_raw_operations") || get_option("consigne_caisse_db_raw_operations") != $apiResponse["operations"])
+                            $this->successUploadMdb["operations"] = update_option('consigne_caisse_db_raw_operations', $apiResponse["operations"]);
+                        else {
+                            $this->successUploadMdb["operations"] = true;
+                        }
+                        if (!get_option("consigne_caisse_db_raw_contacts") || get_option("consigne_caisse_db_raw_contacts") != $apiResponse["users"])
+                            $this->successUploadMdb["users"] = update_option('consigne_caisse_db_raw_contacts', $apiResponse["users"]);
+                        else {
+                            $this->successUploadMdb["users"] = true;
+                        }
+                        $this->successUploadMdb["all"] = ($this->successUploadMdb["accomptes"] &&
+                            $this->successUploadMdb["detail_operations"] &&
+                            $this->successUploadMdb["operations"] &&
+                            $this->successUploadMdb["users"]);
+                        update_option('consigne_caisse_last_uploaded_mdb', time());
+                        $this->uploadSucceededMdb = true;
+                        $this->uploadSucceededMdbResponse = $apiResponse;
+                    }
                 } else {
                     var_dump($movefilemdb);
                     exit();
