@@ -281,8 +281,11 @@ class ConsignePlugin
                 <input type="text" name="consigne_caisse_go_mail" value="<?php echo empty(get_option("consigne_caisse_go_mail")) ? "Courriel1" : get_option("consigne_caisse_go_mail"); ?>" /></p>
             <p><label>Nom de la colonne contenant le solde des utilisateurs</label>
                 <input type="text" name="consigne_caisse_go_balance" value="<?php echo empty(get_option("consigne_caisse_go_balance")) ? "TotalRestant" : get_option("consigne_caisse_go_balance"); ?>" /></p>
-            <input type="hidden" name="update_balances" value="1" />
-            <?php submit_button("Go"); ?>
+            <p>
+                <input type="hidden" name="update_balances" value="1" />
+                <?php submit_button("Go", "primary", "submit", false); ?>
+                <?php submit_button("Forcer la mise-à-jour", "", "force_submit", false); ?>
+            </p>
         </form>
         <?php
         if (!empty($this->users_updated)) {
@@ -387,7 +390,11 @@ class ConsignePlugin
                 $last_uploaded_mdb = get_option('consigne_caisse_last_uploaded_mdb');
                 $last_updated = get_option('consigne_caisse_last_updated');
 
-                if ($last_uploaded && (!$last_updated || $last_updated < $last_uploaded) && (!$last_uploaded_mdb || $last_uploaded_mdb < $last_uploaded)) {
+                $forced = isset($_POST["force_submit"]);
+                $forced_csv = $forced && $last_uploaded && (!$last_uploaded_mdb || $last_uploaded_mdb < $last_uploaded);
+                $forced_mdb = $forced && $last_uploaded_mdb && (!$last_uploaded || $last_uploaded < $last_uploaded_mdb);
+
+                if ($forced_csv || ($last_uploaded && (!$last_updated || $last_updated < $last_uploaded) && (!$last_uploaded_mdb || $last_uploaded_mdb < $last_uploaded))) {
                     $filename_operations = get_option('consigne_caisse_db_pathfile_operations');
                     $filename_accomptes = get_option('consigne_caisse_db_pathfile_accomptes');
                     $filename_detail_operations = get_option('consigne_caisse_db_pathfile_detail_operations');
@@ -405,7 +412,7 @@ class ConsignePlugin
                         $this->missingFile = true;
                         return false;
                     }
-                } else if ($last_uploaded_mdb && (!$last_updated || $last_updated < $last_uploaded_mdb)) {
+                } else if ($forced_mdb || ($last_uploaded_mdb && (!$last_updated || $last_updated < $last_uploaded_mdb))) {
                     $contacts = get_option('consigne_caisse_db_raw_contacts');
                     $operations = get_option('consigne_caisse_db_raw_operations');
                     $accomptes = get_option('consigne_caisse_db_raw_accomptes');
@@ -490,8 +497,8 @@ class ConsignePlugin
                     $operations_details[$ope["IdOperation"]][] = array(
                         "produit" => $ope["DesignationProduit"],
                         "fournisseur" => $ope["idFournisseur"],
-                        "quantite" => $ope["Quantite"],
-                        "prix" => $ope["PrixUnitaire"]
+                        "quantite" => floatval($ope["Quantite"]),
+                        "prix" => floatval($ope["PrixUnitaire"])
                     );
                 }
 
