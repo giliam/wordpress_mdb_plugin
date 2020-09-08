@@ -30,6 +30,8 @@ class ConsignePlugin
         $this->failed_format = false;
         $this->errorMessage = false;
         $this->wrongFileExtension = false;
+		$this->wrongFileExtensionMdb = false;
+		$this->fileExtensionMdb = false;
         $this->uploadSucceeded = false;
         $this->uploadSucceededMdb = false;
         $this->uploadFailedMdb = false;
@@ -39,6 +41,8 @@ class ConsignePlugin
         // $this->users_updated_values = array();
         $this->users_failed = array();
         $this->users_missing = array();
+		
+		$this->authorizedExtensions = array("application/msaccess", "application/octet-stream");
 
         register_activation_hook(__FILE__, array('ConsignePlugin', 'install'));
         register_uninstall_hook(__FILE__, array('ConsignePlugin', 'uninstall'));
@@ -174,6 +178,12 @@ class ConsignePlugin
                     ?>
                 <div class="notice notice-error">
                     <p>Mauvais format de fichier !</p>
+					<?php if($this->fileExtensionMdb) { ?>
+					<p>
+						Extension donnée : <?php echo $this->fileExtensionMdb; ?>, autorisées : <?php var_dump($this->authorizedExtensions); ?>
+					</p>
+					<?php
+					}?>
                 </div>
             <?php
                     }
@@ -630,7 +640,7 @@ class ConsignePlugin
                 $this->wrongFileExtension = true;
             }
         } else if (isset($_FILES["consigne_caisse_upload_mdb"])) {
-            if ($_FILES["consigne_caisse_upload_mdb"]["type"] == "application/octet-stream") {
+            if (in_array($_FILES["consigne_caisse_upload_mdb"]["type"], $this->authorizedExtensions)) {
                 define('ALLOW_UNFILTERED_UPLOADS', true);
                 $movefilemdb = wp_handle_upload($_FILES["consigne_caisse_upload_mdb"], array('test_form' => false));
                 define('ALLOW_UNFILTERED_UPLOADS', false);
@@ -710,6 +720,7 @@ class ConsignePlugin
                 }
             } else {
                 $this->wrongFileExtensionMdb = true;
+				$this->fileExtensionMdb = isset($_FILES["consigne_caisse_upload_mdb"]) && isset($_FILES["consigne_caisse_upload_mdb"]["type"]) ? $_FILES["consigne_caisse_upload_mdb"]["type"] : false;
             }
         }
     }
