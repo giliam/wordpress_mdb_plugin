@@ -1,12 +1,11 @@
 <?php
 
 /**
- * Template Name: Example Page Template
+ * Template Name: Invoices template
  *
- * A template used to demonstrate how to include the template
- * using this plugin.
+ * A template showing, in the member space, the invoices
  *
- * @package PTE
+ * @package caisse_consigne
  * @since 	1.0.0
  * @version	1.0.0
  */
@@ -91,8 +90,8 @@ get_header();
                                     <tr>
                                         <td><?php echo $ope->produit; ?></td>
                                         <td><?php echo $ope->quantite; ?></td>
-                                        <td><?php echo $ope->prix; ?></td>
-                                        <td><?php echo $ope->quantite * $ope->prix; ?></td>
+                                        <td><?php echo number_format($ope->prix, 2); ?></td>
+                                        <td><?php echo number_format($ope->quantite * $ope->prix, 2); ?></td>
                                     </tr>
                                 <?php
                                 }
@@ -105,7 +104,7 @@ get_header();
                             $accompte = array_shift($accomptes);
                         ?>
                             <h4>Accompte du <?php echo $accompte["date_ope"]->format("d m Y"); ?></h4>
-                            <p>Versement de <?php echo $accompte["valeur"]; ?>€</p>
+                            <p>Versement de <?php echo number_format($accompte["valeur"], 2); ?>€</p>
                         <?php
                         }
 
