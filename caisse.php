@@ -30,8 +30,8 @@ class ConsignePlugin
         $this->failed_format = false;
         $this->errorMessage = false;
         $this->wrongFileExtension = false;
-		$this->wrongFileExtensionMdb = false;
-		$this->fileExtensionMdb = false;
+        $this->wrongFileExtensionMdb = false;
+        $this->fileExtensionMdb = false;
         $this->uploadSucceeded = false;
         $this->uploadSucceededMdb = false;
         $this->uploadFailedMdb = false;
@@ -41,8 +41,8 @@ class ConsignePlugin
         // $this->users_updated_values = array();
         $this->users_failed = array();
         $this->users_missing = array();
-		
-		$this->authorizedExtensions = array("application/msaccess", "application/octet-stream");
+
+        $this->authorizedExtensions = array("application/msaccess", "application/octet-stream");
 
         register_activation_hook(__FILE__, array('ConsignePlugin', 'install'));
         register_uninstall_hook(__FILE__, array('ConsignePlugin', 'uninstall'));
@@ -178,12 +178,12 @@ class ConsignePlugin
                     ?>
                 <div class="notice notice-error">
                     <p>Mauvais format de fichier !</p>
-					<?php if($this->fileExtensionMdb) { ?>
-					<p>
-						Extension donnée : <?php echo $this->fileExtensionMdb; ?>, autorisées : <?php var_dump($this->authorizedExtensions); ?>
-					</p>
-					<?php
-					}?>
+                    <?php if ($this->fileExtensionMdb) { ?>
+                        <p>
+                            Extension donnée : <?php echo $this->fileExtensionMdb; ?>, autorisées : <?php var_dump($this->authorizedExtensions); ?>
+                        </p>
+                    <?php
+                        } ?>
                 </div>
             <?php
                     }
@@ -447,7 +447,7 @@ class ConsignePlugin
 
                 foreach ($contacts as $key => $contact) {
                     if (!empty($contact[$column_mail])) {
-                        $users_pk[esc_sql($contact[$column_mail])] = intval($contact["tContactsPK"]);
+                        $users_pk[esc_sql(trim($contact[$column_mail]))] = intval($contact["tContactsPK"]);
                     }
                 }
 
@@ -720,7 +720,7 @@ class ConsignePlugin
                 }
             } else {
                 $this->wrongFileExtensionMdb = true;
-				$this->fileExtensionMdb = isset($_FILES["consigne_caisse_upload_mdb"]) && isset($_FILES["consigne_caisse_upload_mdb"]["type"]) ? $_FILES["consigne_caisse_upload_mdb"]["type"] : false;
+                $this->fileExtensionMdb = isset($_FILES["consigne_caisse_upload_mdb"]) && isset($_FILES["consigne_caisse_upload_mdb"]["type"]) ? $_FILES["consigne_caisse_upload_mdb"]["type"] : false;
             }
         }
     }
