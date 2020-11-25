@@ -60,7 +60,8 @@ class PageTemplater
 
         // Add your templates to this array.
         $this->templates = array(
-            'factures-template.php' => 'Factures',
+            'templates/factures-template.php' => 'Factures',
+            'templates/fournisseurs-template.php' => 'Fournisseurs',
         );
     }
 

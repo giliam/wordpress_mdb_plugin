@@ -2,7 +2,7 @@
 
 /**
  * Plugin Name: Caisse pour la consigne
- * Plugin URI: ...
+ * Plugin URI: https://github.com/giliam/wordpress_mdb_plugin
  * Description: Caisse pour la consigne
  * Version: 2.0
  * Author: Giliam
@@ -11,7 +11,7 @@
 defined('ABSPATH') or die();
 include_once plugin_dir_path(__FILE__) . '/common.php';
 include_once plugin_dir_path(__FILE__) . '/caisse_widget.php';
-include_once plugin_dir_path(__FILE__) . '/factures.php';
+include_once plugin_dir_path(__FILE__) . '/specific_templates.php';
 include_once plugin_dir_path(__FILE__) . '/parameters.php';
 
 class FileNotFound extends Exception

@@ -19,7 +19,7 @@ function get_user_balance($user_pk, $email = NULL)
         $query = $wpdb->get_row("SELECT balance FROM {$wpdb->prefix}consigne_caisse_soldes WHERE user_id = " . intval($user_pk));
     }
     if ($query) {
-        return floatval($query->balance) . " €";
+        return number_format(floatval($query->balance), 2) . " €";
     } else {
         return "<em>Inconnu</em>";
     }

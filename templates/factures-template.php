@@ -10,7 +10,7 @@
  * @version	1.0.0
  */
 defined('ABSPATH') or die();
-include_once plugin_dir_path(__FILE__) . '/common.php';
+include_once plugin_dir_path(__FILE__) . '../common.php';
 
 ?>
 
@@ -29,7 +29,7 @@ $user = get_userdata($user_pk);
 
 $query_invoices = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}consigne_caisse_factures WHERE user_id = " . intval($user_pk) . " OR email = '" . esc_sql($user->user_email) . "' ORDER BY date_ope DESC, ope_id, fournisseur, produit");
 $query_accomptes = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}consigne_caisse_accomptes WHERE user_id = " . intval($user_pk) . " OR email = '" . esc_sql($user->user_email) . "' ORDER BY date_ope DESC");
-$balance = get_current_user_balance();
+
 $accomptes = array();
 foreach ($query_accomptes as $key => $accompte) {
     $date_ope = DateTime::createFromFormat("Y-m-d 00:00:00", $accompte->date_ope);
@@ -68,7 +68,7 @@ get_header();
                                 $accompte = array_shift($accomptes);
                         ?>
                                 <h4>Accompte du <?php echo $accompte["date_ope"]->format("d m Y"); ?></h4>
-                                <p>Versement de <?php echo $accompte["valeur"]; ?>€</p>
+                                <p>Versement de <?php echo number_format($accompte["valeur"], 2); ?>€</p>
                             <?php
                             }
                             ?>
@@ -89,7 +89,7 @@ get_header();
                                 ?>
                                     <tr>
                                         <td><?php echo $ope->produit; ?></td>
-                                        <td><?php echo $ope->quantite; ?></td>
+                                        <td><?php echo number_format($ope->quantite, 2); ?></td>
                                         <td><?php echo number_format($ope->prix, 2); ?></td>
                                         <td><?php echo number_format($ope->quantite * $ope->prix, 2); ?></td>
                                     </tr>
