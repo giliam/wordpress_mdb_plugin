@@ -13,6 +13,7 @@ include_once plugin_dir_path(__FILE__) . '/common.php';
 include_once plugin_dir_path(__FILE__) . '/caisse_widget.php';
 include_once plugin_dir_path(__FILE__) . '/factures.php';
 include_once plugin_dir_path(__FILE__) . '/parameters.php';
+include_once plugin_dir_path(__FILE__) . '/boutique_block.php';
 
 class FileNotFound extends Exception
 {
