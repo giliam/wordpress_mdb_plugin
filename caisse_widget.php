@@ -15,8 +15,9 @@ class ConsigneCaisseWidget extends WP_Widget
             echo $args['before_title'];
             echo apply_filters('widget_title', $instance['title']);
             echo $args['after_title'];
+            $balance = get_current_user_balance();
 ?>
-            <p><strong>Votre solde :</strong> <?php echo get_current_user_balance(); ?></p>
+            <p <?php if (strpos($balance, "-") !== false) { ?>style="color: red; font-size: 2em;" <?php } ?>><strong>Votre solde :</strong> <?php echo $balance; ?></p>
             <p><a href="/membres/factures/">Historique de vos commandes</a></p>
         <?php
         }
