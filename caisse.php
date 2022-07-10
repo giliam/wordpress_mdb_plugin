@@ -649,7 +649,7 @@ class ConsignePlugin
                         unlink(get_option('consigne_caisse_db_mdbfile'));
                     }
                     update_option('consigne_caisse_db_mdbfile', $movefilemdb["file"]);
-                    //$cURLConnection = curl_init("http://localhost/consigne/backend.php");
+					
                     $cURLConnection = curl_init(MDB_PLUGIN_BACKEND_URL);
                     $timestamp = time();
                     require_once "key.php";
@@ -666,6 +666,10 @@ class ConsignePlugin
                         'hour' => date("H:i:s", $timestamp),
                         'file' => $cfile,
                     );
+					if(DEBUG) {
+						var_dump($postRequest);
+						var_dump(MDB_PLUGIN_BACKEND_URL);
+					}
 
                     curl_setopt($cURLConnection, CURLOPT_POST, 1);
                     curl_setopt($cURLConnection, CURLOPT_POSTFIELDS, $postRequest);
@@ -676,15 +680,33 @@ class ConsignePlugin
                     if (!$apiResponse) {
                         $this->uploadFailedMdb = true;
                     } else {
+						if(DEBUG) {
+							var_dump($apiResponse);
+						}
+						
                         $apiResponse = json_decode($apiResponse, true);
-
+						if(DEBUG) {
+							echo "<pre>";
+							var_dump($apiResponse);
+							echo "</pre>";
+							echo "<h1>TET</h1>";
+							var_dump(json_last_error());
+						}
+						
                         $products = array();
                         foreach ($apiResponse["products"] as $product) {
                             $products[$product["IdProduit"]] = $product["DesignationProduit"];
                         }
+						
                         foreach ($apiResponse["detail_operations"] as $opeKey => $ope) {
-                            $apiResponse["detail_operations"][$opeKey]["DesignationProduit"] = $products[$ope["IdProduit"]];
+                            $apiResponse["detail_operations"][$opeKey]["DesignationProduit"] = $products[$ope["Poduits_FKID"]];
                         }
+						if(DEBUG) {
+							echo "<pre>";
+							var_dump($apiResponse["detail_operations"]);
+							echo "</pre>";
+							exit();
+						}
 
                         if (!get_option("consigne_caisse_db_raw_accomptes") || get_option("consigne_caisse_db_raw_accomptes") != $apiResponse["accomptes"])
                             $this->successUploadMdb["accomptes"] = update_option('consigne_caisse_db_raw_accomptes', $apiResponse["accomptes"]);
